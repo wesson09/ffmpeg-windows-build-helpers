@@ -422,6 +422,7 @@ do_git_checkout() {
     cd $to_dir
   else
     cd $to_dir
+    git stash
     if [[ $git_get_latest = "y" ]]; then
       git fetch # want this for later...
     else
@@ -948,8 +949,10 @@ build_libtesseract() {
 }
 
 build_libzimg() {
-  do_git_checkout https://github.com/sekrit-twc/zimg.git zimg_git
-  cd zimg_git
+  do_git_checkout https://github.com/sekrit-twc/zimg.git  zimg_git
+
+  cd zimg_git 
+    git checkout tags/release-3.0.4
     generic_configure_make_install
   cd ..
 }
@@ -2304,6 +2307,7 @@ build_ffmpeg() {
 
   # allow using local source directory version of ffmpeg
   if [[ -z $ffmpeg_source_dir ]]; then
+    
     do_git_checkout $ffmpeg_git_checkout $output_dir $ffmpeg_git_checkout_version || exit 1
   else
     output_dir="${ffmpeg_source_dir}"
@@ -2346,6 +2350,13 @@ build_ffmpeg() {
     else
       local arch=x86_64
     fi
+
+    #hack VSO version 
+    cp ../../../version.sh  ffbuild 
+    #hack VSO build windows resources (windows version is mandatory to upload in VSO secureuploader)
+    cp ../../../ffmpeg.rc  .
+    ../../cross_compilers/mingw-w64-x86_64/bin/x86_64-w64-mingw32-windres ./ffmpeg.rc -O coff -o fftools/ffmpeg.o
+    cp ../../../Makefile-fftools  fftools/Makefile
 
     init_options="--pkg-config=pkg-config --pkg-config-flags=--static --extra-version=ffmpeg-windows-build-helpers --enable-version3 --disable-debug --disable-w32threads"
     if [[ $compiler_flavors != "native" ]]; then
@@ -2437,8 +2448,19 @@ build_ffmpeg() {
       config_options+=" --disable-libgme"
     fi
     config_options+=" $extra_postpend_configure_options"
+echo "$config_options\n"
 
+    echo " $extra_postpend_configure_options\n"
+    #Hack VSO
+    config_options="--pkg-config=pkg-config --pkg-config-flags=--static --extra-version=ffmpeg-windows-build-helpers --enable-version3 --disable-debug --disable-w32threads --arch=x86_64 --target-os=mingw32 --cross-prefix=/home/juval/VSOffmpeg/ffmpeg-windows-build-helpers/sandbox/cross_compilers/mingw-w64-x86_64/bin/x86_64-w64-mingw32- --enable-gray --enable-fontconfig --enable-gmp --enable-gnutls --enable-libass --enable-libfreetype --enable-libfribidi --enable-libilbc  --enable-libmp3lame --enable-libopencore-amrnb --enable-libopencore-amrwb --enable-libopus --enable-libsnappy --enable-libsoxr --enable-libspeex --enable-libtheora --enable-libtwolame --enable-libvo-amrwbenc --enable-libvorbis --enable-libwebp --enable-libzimg --enable-libzvbi --enable-libopenjpeg --enable-libopenh264 --enable-libsrt --enable-libxml2 --enable-opengl --enable-libdav1d --disable-sdl2 --enable-cuda-llvm  --enable-libsvtav1 --enable-libaom --enable-libvpx --enable-nvenc --enable-nvdec  --extra-cflags=-DLIBTWOLAME_STATIC "
+
+    config_options+=" $postpend_configure_options"
+    config_options+=" $extra_postpend_configure_options"
+    echo "$config_options\n"
+    
     do_configure "$config_options"
+    ../../cross_compilers/mingw-w64-x86_64/bin/x86_64-w64-mingw32-windres ffmpeg.rc -O coff -o fftools/ffmpeg_res.o
+
     rm -f */*.a */*.dll *.exe # just in case some dependency library has changed, force it to re-link even if the ffmpeg source hasn't changed...
     rm -f already_ran_make*
     echo "doing ffmpeg make $(pwd)"
@@ -2554,11 +2576,11 @@ build_ffmpeg_dependencies() {
   build_meson_cross
   build_mingw_std_threads
   build_zlib # Zlib in FFmpeg is autodetected.
-  build_libcaca # Uses zlib and dlfcn (on windows).
+  #build_libcaca # Uses zlib and dlfcn (on windows).
   build_bzip2 # Bzlib (bzip2) in FFmpeg is autodetected.
   build_liblzma # Lzma in FFmpeg is autodetected. Uses dlfcn.
   build_iconv # Iconv in FFmpeg is autodetected. Uses dlfcn.
-  build_sdl2 # Sdl2 in FFmpeg is autodetected. Needed to build FFPlay. Uses iconv and dlfcn.
+  #build_sdl2 # Sdl2 in FFmpeg is autodetected. Needed to build FFPlay. Uses iconv and dlfcn.
   if [[ $build_amd_amf = y ]]; then
     build_amd_amf_headers
   fi
@@ -2573,7 +2595,7 @@ build_ffmpeg_dependencies() {
   #build_libjpeg_turbo # mplayer can use this, VLC qt might need it? [replaces libjpeg] (ffmpeg seems to not need it so commented out here)
   build_libpng # Needs zlib >= 1.0.4. Uses dlfcn.
   build_libwebp # Uses dlfcn.
-  build_harfbuzz
+  #build_harfbuzz
   # harf does now include build_freetype # Uses zlib, bzip2, and libpng.
   build_libxml2 # Uses zlib, liblzma, iconv and dlfcn.
   build_libvmaf
@@ -2601,7 +2623,7 @@ build_ffmpeg_dependencies() {
   build_libilbc # Uses dlfcn.
   build_libmodplug # Uses dlfcn.
   build_libgme
-  build_libbluray # Needs libxml >= 2.6, freetype, fontconfig. Uses dlfcn.
+  #build_libbluray # Needs libxml >= 2.6, freetype, fontconfig. Uses dlfcn.
   build_libbs2b # Needs libsndfile. Uses dlfcn.
   build_libsoxr
   build_libflite
@@ -2732,7 +2754,7 @@ original_cppflags='-U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=0' # Needed for mingw-w64
 #fi
 ffmpeg_git_checkout_version=
 build_ismindex=n
-enable_gpl=y
+enable_gpl=n
 build_x264_with_libav=n # To build x264 with Libavformat.
 ffmpeg_git_checkout="https://github.com/FFmpeg/FFmpeg.git"
 ffmpeg_source_dir=
@@ -2767,7 +2789,7 @@ while true; do
       --build-x264-with-libav=n build x264.exe with bundled/included "libav" ffmpeg libraries within it
       --prefer-stable=y build a few libraries from releases instead of git master
       --debug Make this script  print out each line as it executes
-      --enable-gpl=[y] set to n to do an lgpl build
+      --enable-gpl=[n] set to n to do an lgpl build
       --build-dependencies=y [builds the ffmpeg dependencies. Disable it when the dependencies was built once and can greatly reduce build time. ]
        "; exit 0 ;;
     --sandbox-ok=* ) sandbox_ok="${1#*=}"; shift ;;
