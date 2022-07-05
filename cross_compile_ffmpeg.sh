@@ -1062,9 +1062,9 @@ build_libxml2() {
 }
 
 build_libvmaf() {
-  do_git_checkout https://github.com/Netflix/vmaf.git vmaf_git v1.5.2
+  do_git_checkout https://github.com/Netflix/vmaf.git vmaf_git v2.3.0
   cd vmaf_git
-    apply_patch file://$patch_dir/libvmaf.various-1.5.2.patch -p1
+    # apply_patch file://$patch_dir/libvmaf.various-1.5.2.patch -p1
     cd libvmaf
     export CFLAGS="$CFLAGS -pthread"
     export CXXFLAGS="$CFLAGS -pthread"
@@ -1085,7 +1085,7 @@ build_libvmaf() {
     else
       rm -f ${mingw_w64_x86_64_prefix}/lib/libvmaf.dll.a
     fi
-    sed -i.bak "s/Libs.private.*/& -lstdc++/" "$PKG_CONFIG_PATH/libvmaf.pc" # .pc is still broken
+    sed -i.bak "s/Libs.*/& -lstdc++/" "$PKG_CONFIG_PATH/libvmaf.pc" # .pc is still broken
   cd ../..
 }
 
@@ -1343,7 +1343,7 @@ build_libsndfile() {
 }
 
 build_lame() {
-  do_svn_checkout https://svn.code.sf.net/p/lame/svn/trunk/lame lame_svn r6474
+  do_svn_checkout http://svn.code.sf.net/p/lame/svn/trunk/lame lame_svn r6474
   cd lame_svn
     sed -i.bak '1s/^\xEF\xBB\xBF//' libmp3lame/i386/nasm.h # Remove a UTF-8 BOM that breaks nasm if it's still there; should be fixed in trunk eventually https://sourceforge.net/p/lame/patches/81/
     generic_configure "--enable-nasm"
@@ -1710,7 +1710,7 @@ build_libaribb24() {
 }
 
 build_libxavs() {
-  do_svn_checkout https://svn.code.sf.net/p/xavs/code/trunk xavs_svn
+  do_svn_checkout http://svn.code.sf.net/p/xavs/code/trunk xavs_svn
   cd xavs_svn
     if [[ ! -f Makefile.bak ]]; then
       sed -i.bak "s/O4/O2/" configure # Change CFLAGS.
@@ -2350,7 +2350,7 @@ build_ffmpeg() {
     else
       local arch=x86_64
     fi
-
+    
     #hack VSO version 
     cp ../../../version.sh  ffbuild 
     #hack VSO build windows resources (windows version is mandatory to upload in VSO secureuploader)
@@ -2430,6 +2430,7 @@ build_ffmpeg() {
     done
 
     config_options+=" $postpend_configure_opts"
+    echo " $postpend_configure_opts\n"
 
     if [[ "$non_free" = "y" ]]; then
       config_options+=" --enable-nonfree --enable-libfdk-aac"
@@ -2448,7 +2449,7 @@ build_ffmpeg() {
       config_options+=" --disable-libgme"
     fi
     config_options+=" $extra_postpend_configure_options"
-echo "$config_options\n"
+    echo "$config_options\n"
 
     echo " $extra_postpend_configure_options\n"
     #Hack VSO
